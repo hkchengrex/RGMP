@@ -36,36 +36,51 @@ def ToCudaVariable(xs, volatile=False):
         return [Variable(x, volatile=volatile) for x in xs]
 
 def upsample(x, size):
-    x = x.numpy()[0]
-    dsize = (size[1], size[0])
-    x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
-    return torch.unsqueeze(torch.from_numpy(x), dim=0)
+    # x = x.numpy()[0]
+    # dsize = (size[1], size[0])
+    # x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
+    # return torch.unsqueeze(torch.from_numpy(x), dim=0)
+    if len(x.shape) == 3:
+        return F.interpolate(x.unsqueeze(1), size=size, mode='bilinear', align_corners=False).squeeze(1)
+    else:
+        return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
 
 def downsample(xs, scale):
     if scale == 1:
         return xs
 
     # find new size dividable by 32
-    h = xs[0].size()[2] 
-    w = xs[0].size()[3]
-    
-    new_h = int(h * scale)
-    new_w = int(w * scale) 
-    new_h = new_h + 32 - new_h % 32
-    new_w = new_w + 32 - new_w % 32
 
-    dsize = (new_w, new_h)
     ys = []
     for x in xs:
-        x = x.numpy()[0] # c,h,w
-        if x.ndim == 3:
-            x = np.transpose(x, [1,2,0])
-            x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
-            x = np.transpose(x, [2,0,1])
+        if len(x.shape) == 3:
+            h = x.shape[1]
+            w = x.shape[2]
+            new_h = int(h * scale)
+            new_w = int(w * scale) 
+            new_h = new_h + 32 - new_h % 32
+            new_w = new_w + 32 - new_w % 32
+            ys.append(F.interpolate(x.unsqueeze(1), size=(new_h,new_w), mode='bilinear', align_corners=False).squeeze(1))
         else:
-            x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
+            h = x.shape[2]
+            w = x.shape[3]
+            new_h = int(h * scale)
+            new_w = int(w * scale) 
+            new_h = new_h + 32 - new_h % 32
+            new_w = new_w + 32 - new_w % 32
+            ys.append(F.interpolate(x, size=(new_h,new_w), mode='bilinear', align_corners=False))
 
-        ys.append(torch.unsqueeze(torch.from_numpy(x), dim=0))
+    #     x = x.numpy()[0] # c,h,w
+    #     if x.ndim == 3:
+    #         x = np.transpose(x, [1,2,0])
+    #         x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
+    #         x = np.transpose(x, [2,0,1])
+    #     else:
+    #         x = cv2.resize(x, dsize=dsize, interpolation=cv2.INTER_LINEAR)
+
+    #     ys.append(torch.unsqueeze(torch.from_numpy(x), dim=0))
+
+    return ys
 
     return ys
 
